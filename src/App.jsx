@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 function Item({ story }) {
   return (
@@ -46,7 +46,6 @@ function Search({ searchTerm, onSearch }) {
 function App() {
   console.log('App render');
 
-  // Data owned by App
   const stories = [
     {
       title: 'React',
@@ -74,15 +73,22 @@ function App() {
     },
   ];
 
-  // State
-  const [searchTerm, setSearchTerm] = useState('');
+  // initialize state from localStorage (fallback = empty string)
+  const [searchTerm, setSearchTerm] = useState(
+    localStorage.getItem('search') || ''
+  );
 
-  // Handler
+  // update state when typing
   const handleSearch = (event) => {
     setSearchTerm(event.target.value);
   };
 
-  // Filter logic
+  // save to localStorage whenever searchTerm changes
+  useEffect(() => {
+    localStorage.setItem('search', searchTerm);
+  }, [searchTerm]);
+
+  // filter stories
   const searchedStories = stories.filter((story) =>
     story.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -91,7 +97,10 @@ function App() {
     <div>
       <h1>My Hacker Stories</h1>
 
-      <Search searchTerm={searchTerm} onSearch={handleSearch} />
+      <Search
+        searchTerm={searchTerm}
+        onSearch={handleSearch}
+      />
 
       <List stories={searchedStories} />
     </div>
@@ -99,19 +108,19 @@ function App() {
 }
 
 /*
-Props:
-- Data passed from parent to child
-- Read-only
+Controlled Component:
+- Input value is controlled by React state.
+- value comes from state.
+- onChange updates state.
 
-State:
-- Data managed inside component
-- Can change over time
+Side Effect:
+- Work outside rendering.
+- Examples: localStorage, API calls, timers.
 
-Why lift state up?
-- So multiple components can share the same data
-
-Where should filtering logic live?
-- In App, because App owns stories and searchTerm
+Why use useEffect?
+- Runs side effects after render.
+- Keeps rendering pure.
+- Runs when dependencies change.
 */
 
 export default App;
