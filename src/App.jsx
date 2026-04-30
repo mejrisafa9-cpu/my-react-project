@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
+const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query=';
+
 function Item({ story, onRemoveItem }) {
   return (
     <li>
@@ -21,8 +23,6 @@ function Item({ story, onRemoveItem }) {
 }
 
 function List({ stories, onRemoveItem }) {
-  console.log('List render');
-
   return (
     <ul>
       {stories.map((story) => (
@@ -43,8 +43,6 @@ function InputWithLabel({
   onInputChange,
   children,
 }) {
-  console.log('InputWithLabel render');
-
   return (
     <>
       <label htmlFor={id}>{children}</label>&nbsp;
@@ -59,66 +57,56 @@ function InputWithLabel({
 }
 
 function App() {
-  console.log('App render');
+  const [stories, setStories] = useState([]);
 
-  // initial data
-  const initialStories = [
-    {
-      title: 'React',
-      url: 'https://react.dev',
-      author: 'Jordan Walke',
-      num_comments: 3,
-      points: 4,
-      objectID: 0,
-    },
-    {
-      title: 'JavaScript',
-      url: 'https://javascript.info',
-      author: 'Ilya Kantor',
-      num_comments: 2,
-      points: 5,
-      objectID: 1,
-    },
-    {
-      title: 'Node.js',
-      url: 'https://nodejs.org',
-      author: 'OpenJS Foundation',
-      num_comments: 1,
-      points: 3,
-      objectID: 2,
-    },
-  ];
-
-  // stories state
-  const [stories, setStories] = useState(initialStories);
-
-  // search state from localStorage
   const [searchTerm, setSearchTerm] = useState(
-    localStorage.getItem('search') || ''
+    localStorage.getItem('search') || 'React'
   );
 
-  // input handler
+  const [url, setUrl] = useState(
+    `${API_ENDPOINT}${localStorage.getItem('search') || 'React'}`
+  );
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [isError, setIsError] = useState(false);
+
   const handleSearch = (event) => {
     setSearchTerm(event.target.value);
   };
 
-  // persist searchTerm
+  const handleSearchSubmit = () => {
+    if (!searchTerm) return;
+    setUrl(`${API_ENDPOINT}${searchTerm}`);
+  };
+
   useEffect(() => {
     localStorage.setItem('search', searchTerm);
   }, [searchTerm]);
 
-  // remove item handler
+  useEffect(() => {
+    if (!url) return;
+
+    setIsLoading(true);
+    setIsError(false);
+
+    fetch(url)
+      .then((response) => response.json())
+      .then((result) => {
+        setStories(result.hits);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setIsError(true);
+        setIsLoading(false);
+      });
+  }, [url]);
+
   const handleRemoveStory = (item) => {
     const newStories = stories.filter(
       (story) => story.objectID !== item.objectID
     );
     setStories(newStories);
   };
-
-  // filter stories
-  const searchedStories = stories.filter((story) =>
-    story.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
     <div>
@@ -132,33 +120,55 @@ function App() {
         <strong>Search:</strong>
       </InputWithLabel>
 
+      <button
+        type="button"
+        disabled={!searchTerm}
+        onClick={handleSearchSubmit}
+      >
+        Submit
+      </button>
+
       <hr />
 
-      <List
-        stories={searchedStories}
-        onRemoveItem={handleRemoveStory}
-      />
+      {isError && <p>Something went wrong ...</p>}
+
+      {isLoading ? (
+        <p>Loading ...</p>
+      ) : (
+        <List
+          stories={stories}
+          onRemoveItem={handleRemoveStory}
+        />
+      )}
     </div>
   );
 }
 
 /*
-Reusable Component:
-- Generic props
-- Not tied to one feature
-- Can be reused in different places
-- Example: InputWithLabel instead of Search
+Why use useEffect for fetching?
+- Fetching data is a side effect
+- useEffect runs side effects after render
+- Lets React control when fetch happens
 
-Component Composition:
-- Passing JSX/content inside component tags
-- Accessed using {children}
-- Makes components flexible
+Loading state:
+- Request is in progress
 
-Why pass handlers down?
-- State lives in parent (App)
-- Child triggers action (button click)
-- Parent updates state
-- This keeps data flow one-way in React
+Error state:
+- Request failed
+
+Difference:
+- Loading = waiting
+- Error = failed
+
+Why control when fetching happens?
+- Prevent fetching on every keystroke
+- Better performance
+- User decides when to search
+
+Why separate searchTerm and url?
+- searchTerm = what user types
+- url = what triggers fetching
+- Fetch only happens when Submit is clicked
 */
 
 export default App;
