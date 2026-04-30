@@ -1,45 +1,15 @@
-// ─────────────────────────────────────────────────────────────
-//  Step 1 – Understanding the Data Structure
+// ═══════════════════════════════════════════════════════════════
+//  GLOBAL DATA  (module-level — outside every component)
 //
-//  Each news story object looks like this:
-//
-//  {
-//    objectID    : "37510853",   // unique identifier  ← React KEY
-//    title       : "Article title here",
-//    url         : "https://example.com/article",
-//    author      : "username",
-//    points      : 312,          // number (popularity score)
-//    num_comments: 87,           // number
-//  }
-//
-//  Which property should be the React key?
-//    → objectID. It is guaranteed to be unique and stable —
-//      it never changes even if the list is re-sorted or
-//      new items are added.
-//
-//  Why is this structure realistic for an API?
-//    → It mirrors exactly what the Hacker News Algolia API
-//      returns (/api/v1/search). Real-world APIs always
-//      include a stable unique ID (objectID, id, _id …)
-//      and mix numeric scores with string metadata.
-// ─────────────────────────────────────────────────────────────
-
-
-// ─────────────────────────────────────────────────────────────
-//  Step 2 – Fake data defined OUTSIDE the component
-//
-//  Why outside?
-//    • It is static — it never changes, so it doesn't need
-//      to be re-created on every render.
-//    • Keeping it at module level makes it easy to swap out
-//      later: we'll just delete this array and fetch from
-//      the API instead.
-//
-//  What will change when data comes from the API?
-//    • This array will be replaced by a useState() call
-//      (so React can trigger a re-render when data arrives)
-//      and a useEffect() that fetches from the HN endpoint.
-// ─────────────────────────────────────────────────────────────
+//  Why keep stories here?
+//  • It is static for now, so no component "owns" it yet.
+//  • Every component in this file can read it via JS lexical
+//    scoping without any prop-passing.
+//  • Not scalable for real apps: globals are not reactive, cannot
+//    be updated via setState, and become hard to trace in large
+//    codebases. The next step is moving data into App's state and
+//    passing it down as props.
+// ═══════════════════════════════════════════════════════════════
 const stories = [
   {
     objectID: "37510853",
@@ -54,7 +24,7 @@ const stories = [
     title: "An Interactive Intro to CRDTs",
     url: "https://jakelazaroff.com/words/an-interactive-intro-to-crdts/",
     author: "jakelazaroff",
-    points: 876,    // ← Step 6: bumped to 950 below
+    points: 950,   // bumped from 876 in the previous lab
     num_comments: 102,
   },
   {
@@ -65,7 +35,6 @@ const stories = [
     points: 543,
     num_comments: 231,
   },
-  // Step 6 – New story added
   {
     objectID: "38012456",
     title: "Why Signals Are Better Than useState for Complex State",
@@ -76,78 +45,131 @@ const stories = [
   },
 ];
 
-// Step 6 – Increase points of the second story and verify the UI updates
-stories[1].points = 950;
+
+// ═══════════════════════════════════════════════════════════════
+//  Step 5 – Header component (Mini Challenge)
+//
+//  Responsibility: display the app's brand / page title.
+//  It needs no data at all — pure presentational markup.
+// ═══════════════════════════════════════════════════════════════
+function Header() {
+  return (
+    <header className="app-header">
+      <h1>📰 Hacker News Reader</h1>
+      <p className="tagline">Top stories, curated for developers</p>
+    </header>
+  );
+}
 
 
-// ─────────────────────────────────────────────────────────────
-//  Component
-// ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  Step 3 – Search component
+//
+//  Responsibility: render the search label + input field.
+//  It does NOT filter anything yet — that comes when we add
+//  state and props in the next lab.
+//
+//  Does Search need access to `stories` right now?
+//    → No. Its only job is to display a form element.
+//       The global `stories` variable is irrelevant here.
+//
+//  Think Before You Code:
+//    • Why htmlFor instead of for?
+//      "for" is a reserved JS keyword; JSX uses htmlFor.
+// ═══════════════════════════════════════════════════════════════
+function Search() {
+  return (
+    <div className="search-container">
+      <label htmlFor="search">Search stories:</label>
+      <input
+        id="search"
+        type="text"
+        placeholder="e.g. React, Bun, htmx…"
+      />
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  Step 1 – List component
+//
+//  Responsibility: iterate over `stories` and render each item.
+//
+//  Why does List still have access to `stories` without props?
+//    → JS lexical scoping: `stories` is declared at module level,
+//      so every function in this file — including List — can read
+//      it. The component doesn't need to receive it via props
+//      because it's in the same scope.
+//
+//  Is this scalable?
+//    → No. Accessing a global inside a component creates a hidden
+//      dependency that makes the component hard to test, reuse, or
+//      reason about. The scalable solution is to pass data as a
+//      prop: <List stories={stories} />.  We'll do that next lab.
+// ═══════════════════════════════════════════════════════════════
+function List() {
+  return (
+    <ul className="story-list">
+      {stories.map((story) => (
+        // Key must be on the TOP-LEVEL element returned by map().
+        // objectID is preferred over index: it stays stable even
+        // if items are deleted or reordered. Using the index would
+        // cause React to mix up nodes and produce subtle UI bugs.
+        <li key={story.objectID} className="story-item">
+
+          {/* Title as a clickable link — opens in a new tab */}
+          <h3>
+            <a
+              href={story.url || "#"}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {story.title}
+            </a>
+          </h3>
+
+          {/* Author · points · comments using semantic <span> */}
+          <p>
+            By <span className="author">{story.author}</span>
+            {" · "}
+            <span className="points">{story.points} points</span>
+            {" · "}
+            <span className="comments">{story.num_comments} comments</span>
+          </p>
+
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  Step 2 – App component  (orchestrator / shell)
+//
+//  Responsibility: compose the page by placing child components
+//  in the right order. App no longer contains any data logic or
+//  rendering detail — it just assembles the pieces.
+//
+//  Think Before You Code:
+//    • What if you forget <List />?
+//      App renders without errors, but no stories appear —
+//      the UI is silently incomplete.
+//    • Who is responsible for rendering stories now?
+//      The List component owns that responsibility.
+// ═══════════════════════════════════════════════════════════════
 function App() {
-
-  // Step 3 – Debug moment: log one story to the console
-  // so we can inspect its structure before rendering.
-  console.log("First story object →", stories[0]);
-
   return (
     <div className="app-container">
-      <h1>Hacker News Stories</h1>
+      {/* Step 5 – Header renders the app title */}
+      <Header />
 
-      {/*
-        Step 3 – Render the list with map()
-        ────────────────────────────────────
-        • map() returns a NEW array of JSX elements — that's
-          why it works inside JSX (JSX can render arrays).
-        • forEach() returns undefined, so it cannot be used
-          here; we need the transformed array that map() gives us.
-      */}
-      <ul className="story-list">
-        {stories.map((story) => {
+      {/* Step 3 – Search renders the search field */}
+      <Search />
 
-          /*
-            Step 5 – Key prop
-            ─────────────────
-            The key goes on the TOP-LEVEL element returned by map().
-
-            Why objectID and NOT the array index?
-            • If items are deleted or reordered, indexes shift,
-              so React would mis-identify nodes and force
-              unnecessary DOM updates (or lose input state).
-            • objectID is stable and unique — React knows exactly
-              which item changed.
-
-            Intentional test (Step 5):
-            Remove key={story.objectID} → console shows:
-            "Warning: Each child in a list should have a unique key prop."
-          */
-          return (
-            <li key={story.objectID} className="story-item">
-
-              {/* Step 4 – Title as a clickable link */}
-              {/* Opens in a new tab; falls back to "#" if url is missing */}
-              <h3>
-                <a
-                  href={story.url || "#"}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {story.title}
-                </a>
-              </h3>
-
-              {/* Step 4 – Author, points, comments with semantic HTML */}
-              <p>
-                By <span className="author">{story.author}</span>
-                {" · "}
-                <span className="points">{story.points} points</span>
-                {" · "}
-                <span className="comments">{story.num_comments} comments</span>
-              </p>
-
-            </li>
-          );
-        })}
-      </ul>
+      {/* Step 1 + 2 – List renders all stories */}
+      <List />
     </div>
   );
 }
@@ -155,34 +177,30 @@ function App() {
 export default App;
 
 
-// ─────────────────────────────────────────────────────────────
-//  Step 7 – Reflection
-// ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+//  Step 4 – Reflection
+// ═══════════════════════════════════════════════════════════════
 
-// 1. WHY IS map() ESSENTIAL FOR RENDERING LISTS IN REACT?
-//    JSX only accepts expressions, not statements. map() is an
-//    expression — it returns a new array of JSX nodes that React
-//    can render. forEach() returns undefined, so there would be
-//    nothing to display. map() is also declarative: "transform
-//    every story into a <li>" reads exactly like what we intend.
+// 1. WHAT DOES App DO NOW?
+//    App is a pure orchestrator — it composes the page by
+//    rendering Header, Search, and List in the correct order.
+//    It contains zero data logic and zero rendering detail.
+//    Think of it as the "table of contents" of the UI.
 
-// 2. WHY IS objectID THE CORRECT KEY?
-//    A key must be (a) unique among siblings and (b) stable
-//    across re-renders. objectID comes from the data source and
-//    never changes even if the list is filtered or reordered.
-//    Using the array index would break if items are removed or
-//    shuffled because React would re-map stale keys to the wrong
-//    DOM nodes, causing subtle bugs and unnecessary re-renders.
+// 2. WHAT DOES List DO?
+//    List owns a single responsibility: iterate over the global
+//    `stories` array with map() and produce one <li> per story,
+//    with its title link, author, points, and comment count.
 
-// 3. WHAT WILL CHANGE WHEN WE REPLACE FAKE DATA WITH THE API?
-//    Three things:
-//    a) The `stories` constant at module level goes away.
-//    b) We add: const [stories, setStories] = useState([])
-//       so React re-renders the list once data arrives.
-//    c) We add: useEffect(() => {
-//         fetch("https://hn.algolia.com/api/v1/search?query=react")
-//           .then(res => res.json())
-//           .then(data => setStories(data.hits));
-//       }, [])
-//    The JSX rendering block (the map) stays exactly the same —
-//    that's the benefit of separating data from presentation.
+// 3. WHAT DOES Search DO?
+//    Search renders the search label + input element. Right now
+//    it is purely presentational — it shows the UI widget but
+//    doesn't filter anything yet. In the next lab it will receive
+//    a value and an onChange handler via props.
+
+// 4. WHY IS THIS STRUCTURE CLEANER THAN BEFORE?
+//    Each component now has ONE clear job (Single Responsibility
+//    Principle). App.jsx is easier to read: you see the page
+//    structure at a glance just by reading App's return value.
+//    Individual components can be developed, tested, and debugged
+//    in isolation without touching the others.
