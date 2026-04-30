@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-function Item({ story }) {
+function Item({ story, onRemoveItem }) {
   return (
     <li>
       <span>
@@ -10,43 +10,59 @@ function Item({ story }) {
       </span>{' '}
       <span>{story.author}</span>{' '}
       <span>{story.num_comments}</span>{' '}
-      <span>{story.points}</span>
+      <span>{story.points}</span>{' '}
+      <span>
+        <button type="button" onClick={() => onRemoveItem(story)}>
+          Delete
+        </button>
+      </span>
     </li>
   );
 }
 
-function List({ stories }) {
+function List({ stories, onRemoveItem }) {
   console.log('List render');
 
   return (
     <ul>
       {stories.map((story) => (
-        <Item key={story.objectID} story={story} />
+        <Item
+          key={story.objectID}
+          story={story}
+          onRemoveItem={onRemoveItem}
+        />
       ))}
     </ul>
   );
 }
 
-function Search({ searchTerm, onSearch }) {
-  console.log('Search render');
+function InputWithLabel({
+  id,
+  value,
+  type = 'text',
+  onInputChange,
+  children,
+}) {
+  console.log('InputWithLabel render');
 
   return (
-    <div>
-      <label htmlFor="search">Search: </label>
+    <>
+      <label htmlFor={id}>{children}</label>&nbsp;
       <input
-        id="search"
-        type="text"
-        value={searchTerm}
-        onChange={onSearch}
+        id={id}
+        type={type}
+        value={value}
+        onChange={onInputChange}
       />
-    </div>
+    </>
   );
 }
 
 function App() {
   console.log('App render');
 
-  const stories = [
+  // initial data
+  const initialStories = [
     {
       title: 'React',
       url: 'https://react.dev',
@@ -73,20 +89,31 @@ function App() {
     },
   ];
 
-  // initialize state from localStorage (fallback = empty string)
+  // stories state
+  const [stories, setStories] = useState(initialStories);
+
+  // search state from localStorage
   const [searchTerm, setSearchTerm] = useState(
     localStorage.getItem('search') || ''
   );
 
-  // update state when typing
+  // input handler
   const handleSearch = (event) => {
     setSearchTerm(event.target.value);
   };
 
-  // save to localStorage whenever searchTerm changes
+  // persist searchTerm
   useEffect(() => {
     localStorage.setItem('search', searchTerm);
   }, [searchTerm]);
+
+  // remove item handler
+  const handleRemoveStory = (item) => {
+    const newStories = stories.filter(
+      (story) => story.objectID !== item.objectID
+    );
+    setStories(newStories);
+  };
 
   // filter stories
   const searchedStories = stories.filter((story) =>
@@ -97,30 +124,41 @@ function App() {
     <div>
       <h1>My Hacker Stories</h1>
 
-      <Search
-        searchTerm={searchTerm}
-        onSearch={handleSearch}
-      />
+      <InputWithLabel
+        id="search"
+        value={searchTerm}
+        onInputChange={handleSearch}
+      >
+        <strong>Search:</strong>
+      </InputWithLabel>
 
-      <List stories={searchedStories} />
+      <hr />
+
+      <List
+        stories={searchedStories}
+        onRemoveItem={handleRemoveStory}
+      />
     </div>
   );
 }
 
 /*
-Controlled Component:
-- Input value is controlled by React state.
-- value comes from state.
-- onChange updates state.
+Reusable Component:
+- Generic props
+- Not tied to one feature
+- Can be reused in different places
+- Example: InputWithLabel instead of Search
 
-Side Effect:
-- Work outside rendering.
-- Examples: localStorage, API calls, timers.
+Component Composition:
+- Passing JSX/content inside component tags
+- Accessed using {children}
+- Makes components flexible
 
-Why use useEffect?
-- Runs side effects after render.
-- Keeps rendering pure.
-- Runs when dependencies change.
+Why pass handlers down?
+- State lives in parent (App)
+- Child triggers action (button click)
+- Parent updates state
+- This keeps data flow one-way in React
 */
 
 export default App;
