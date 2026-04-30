@@ -1,14 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  GLOBAL DATA  (module-level — outside every component)
-//
-//  Why keep stories here?
-//  • It is static for now, so no component "owns" it yet.
-//  • Every component in this file can read it via JS lexical
-//    scoping without any prop-passing.
-//  • Not scalable for real apps: globals are not reactive, cannot
-//    be updated via setState, and become hard to trace in large
-//    codebases. The next step is moving data into App's state and
-//    passing it down as props.
+//  GLOBAL DATA
 // ═══════════════════════════════════════════════════════════════
 const stories = [
   {
@@ -24,7 +15,7 @@ const stories = [
     title: "An Interactive Intro to CRDTs",
     url: "https://jakelazaroff.com/words/an-interactive-intro-to-crdts/",
     author: "jakelazaroff",
-    points: 950,   // bumped from 876 in the previous lab
+    points: 950,
     num_comments: 102,
   },
   {
@@ -47,37 +38,52 @@ const stories = [
 
 
 // ═══════════════════════════════════════════════════════════════
-//  Step 5 – Header component (Mini Challenge)
+//  Step 1 – Header  →  arrow function, concise body (Step 3)
 //
-//  Responsibility: display the app's brand / page title.
-//  It needs no data at all — pure presentational markup.
+//  Syntax difference vs. function declaration:
+//    Before: function Header() { return (...); }
+//    After:  const Header = () => (...);
+//
+//  The return statement is removed in concise body form.
+//  Parentheses () around the JSX are required when the JSX
+//  spans multiple lines — without them JS inserts a semicolon
+//  after the arrow and the function returns undefined silently.
 // ═══════════════════════════════════════════════════════════════
-function Header() {
-  return (
-    <header className="app-header">
-      <h1>📰 Hacker News Reader</h1>
-      <p className="tagline">Top stories, curated for developers</p>
-    </header>
-  );
-}
+const Header = () => (
+  <header className="app-header">
+    <h1>📰 Hacker News Reader</h1>
+    <p className="tagline">Top stories, curated for developers</p>
+  </header>
+);
 
 
 // ═══════════════════════════════════════════════════════════════
-//  Step 3 – Search component
+//  Step 1 + Step 4 – Search  →  arrow function, BLOCK body
 //
-//  Responsibility: render the search label + input field.
-//  It does NOT filter anything yet — that comes when we add
-//  state and props in the next lab.
+//  Step 4: We switch from concise body back to block body
+//  (with explicit `return`) because we need to declare a
+//  handler function BEFORE the return statement.
+//  Concise body has no room for extra statements — it is a
+//  single expression only.
 //
-//  Does Search need access to `stories` right now?
-//    → No. Its only job is to display a form element.
-//       The global `stories` variable is irrelevant here.
-//
-//  Think Before You Code:
-//    • Why htmlFor instead of for?
-//      "for" is a reserved JS keyword; JSX uses htmlFor.
+//  Step 5 – Event handler
+//  • onChange fires on every keystroke (every change to the
+//    input value), not just on blur or form submit.
+//  • The handler receives a synthetic event object `e`.
+//    e.target is the DOM input element.
+//    e.target.value is the string the user typed so far.
+//  • We do NOT introduce state yet — the value is only logged.
 // ═══════════════════════════════════════════════════════════════
-function Search() {
+const Search = () => {
+
+  // Step 5 + Step 7 – handler as an arrow function
+  // Step 7: logs only the value (not the full event object)
+  // and adds a second console.log message.
+  const handleChange = (e) => {
+    console.log("Input value →", e.target.value);           // Step 7a
+    console.log("Characters typed:", e.target.value.length); // Step 7b
+  };
+
   return (
     <div className="search-container">
       <label htmlFor="search">Search stories:</label>
@@ -85,122 +91,110 @@ function Search() {
         id="search"
         type="text"
         placeholder="e.g. React, Bun, htmx…"
+        onChange={handleChange}  // Step 5: onChange, no state yet
       />
     </div>
   );
-}
+};
 
 
 // ═══════════════════════════════════════════════════════════════
-//  Step 1 – List component
+//  Step 1 + Step 2 + Step 3 – List
 //
-//  Responsibility: iterate over `stories` and render each item.
+//  Component itself → arrow function, concise body.
+//  map() callback   → arrow function, concise body (Step 2+3).
 //
-//  Why does List still have access to `stories` without props?
-//    → JS lexical scoping: `stories` is declared at module level,
-//      so every function in this file — including List — can read
-//      it. The component doesn't need to receive it via props
-//      because it's in the same scope.
+//  Step 2: map((story) => { return <li>…</li>; })
+//  Step 3: map((story) => (           ← concise, no return
+//            <li>…</li>
+//          ))
 //
-//  Is this scalable?
-//    → No. Accessing a global inside a component creates a hidden
-//      dependency that makes the component hard to test, reuse, or
-//      reason about. The scalable solution is to pass data as a
-//      prop: <List stories={stories} />.  We'll do that next lab.
+//  When can you remove `return`?
+//    Only when the function body is a SINGLE expression.
+//    As soon as you need an if-statement, a variable, or any
+//    other statement, you must switch back to block body + return.
 // ═══════════════════════════════════════════════════════════════
-function List() {
-  return (
-    <ul className="story-list">
-      {stories.map((story) => (
-        // Key must be on the TOP-LEVEL element returned by map().
-        // objectID is preferred over index: it stays stable even
-        // if items are deleted or reordered. Using the index would
-        // cause React to mix up nodes and produce subtle UI bugs.
-        <li key={story.objectID} className="story-item">
+const List = () => (
+  <ul className="story-list">
+    {stories.map((story) => (
+      // key on the TOP-LEVEL element; objectID preferred over index
+      <li key={story.objectID} className="story-item">
 
-          {/* Title as a clickable link — opens in a new tab */}
-          <h3>
-            <a
-              href={story.url || "#"}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {story.title}
-            </a>
-          </h3>
+        <h3>
+          <a href={story.url || "#"} target="_blank" rel="noreferrer">
+            {story.title}
+          </a>
+        </h3>
 
-          {/* Author · points · comments using semantic <span> */}
-          <p>
-            By <span className="author">{story.author}</span>
-            {" · "}
-            <span className="points">{story.points} points</span>
-            {" · "}
-            <span className="comments">{story.num_comments} comments</span>
-          </p>
+        <p>
+          By <span className="author">{story.author}</span>
+          {" · "}
+          <span className="points">{story.points} points</span>
+          {" · "}
+          <span className="comments">{story.num_comments} comments</span>
+        </p>
 
-        </li>
-      ))}
-    </ul>
-  );
-}
+      </li>
+    ))}
+  </ul>
+);
 
 
 // ═══════════════════════════════════════════════════════════════
-//  Step 2 – App component  (orchestrator / shell)
+//  Step 1 – App  →  arrow function, concise body
 //
-//  Responsibility: compose the page by placing child components
-//  in the right order. App no longer contains any data logic or
-//  rendering detail — it just assembles the pieces.
-//
-//  Think Before You Code:
-//    • What if you forget <List />?
-//      App renders without errors, but no stories appear —
-//      the UI is silently incomplete.
-//    • Who is responsible for rendering stories now?
-//      The List component owns that responsibility.
+//  App remains the pure orchestrator: it only composes the
+//  three child components. Nothing else changed functionally.
 // ═══════════════════════════════════════════════════════════════
-function App() {
-  return (
-    <div className="app-container">
-      {/* Step 5 – Header renders the app title */}
-      <Header />
-
-      {/* Step 3 – Search renders the search field */}
-      <Search />
-
-      {/* Step 1 + 2 – List renders all stories */}
-      <List />
-    </div>
-  );
-}
+const App = () => (
+  <div className="app-container">
+    <Header />
+    <Search />
+    <List />
+  </div>
+);
 
 export default App;
 
 
 // ═══════════════════════════════════════════════════════════════
-//  Step 4 – Reflection
+//  Step 6 – Browser DevTools Observations
+//
+//  • Logging occurs on EVERY keystroke — onChange fires each
+//    time the input value changes, not on form submit.
+//  • The object logged (before Step 7) is a SyntheticEvent:
+//    React's cross-browser wrapper around the native DOM event.
+//  • The property that contains the typed value is:
+//      e.target.value   (e.target is the <input> DOM node)
 // ═══════════════════════════════════════════════════════════════
 
-// 1. WHAT DOES App DO NOW?
-//    App is a pure orchestrator — it composes the page by
-//    rendering Header, Search, and List in the correct order.
-//    It contains zero data logic and zero rendering detail.
-//    Think of it as the "table of contents" of the UI.
 
-// 2. WHAT DOES List DO?
-//    List owns a single responsibility: iterate over the global
-//    `stories` array with map() and produce one <li> per story,
-//    with its title link, author, points, and comment count.
+// ═══════════════════════════════════════════════════════════════
+//  Step 8 – Reflection
+// ═══════════════════════════════════════════════════════════════
 
-// 3. WHAT DOES Search DO?
-//    Search renders the search label + input element. Right now
-//    it is purely presentational — it shows the UI widget but
-//    doesn't filter anything yet. In the next lab it will receive
-//    a value and an onChange handler via props.
+// 1. WHEN DO WE USE CONCISE BODY ARROW FUNCTIONS?
+//    When the function body is a single expression whose value
+//    is the return value — no variables, no conditionals, no
+//    side effects before the return. Ideal for: short callbacks
+//    (map, filter), purely presentational components (Header,
+//    List), one-liner utility helpers.
 
-// 4. WHY IS THIS STRUCTURE CLEANER THAN BEFORE?
-//    Each component now has ONE clear job (Single Responsibility
-//    Principle). App.jsx is easier to read: you see the page
-//    structure at a glance just by reading App's return value.
-//    Individual components can be developed, tested, and debugged
-//    in isolation without touching the others.
+// 2. WHEN DO WE USE BLOCK BODY ARROW FUNCTIONS?
+//    Whenever we need to do MORE than return one expression:
+//    • Declare intermediate variables (const x = …)
+//    • Call side-effect functions before returning (console.log)
+//    • Use if / switch / try-catch logic
+//    • Add future logic (Search will soon manage state)
+//    Rule of thumb: if you think "I'll need to add something
+//    here soon", start with block body.
+
+// 3. WHAT DOES AN EVENT OBJECT CONTAIN?
+//    A SyntheticEvent wrapping the native browser event. Key
+//    properties relevant to input handling:
+//      e.target          → the DOM element that triggered the event
+//      e.target.value    → current string value of the input
+//      e.target.name     → the name attribute (useful for forms)
+//      e.type            → event type: "change", "click", etc.
+//      e.preventDefault()→ method to stop default browser behaviour
+//      e.stopPropagation()→ method to stop event bubbling
